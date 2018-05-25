@@ -222,9 +222,10 @@ Now let's train the model with fit() API.
 We use  the [ModelCheckpoint](https://keras.io/callbacks/#modelcheckpoint) API to save the model after every epoch. Set "save_best_only = True" to save only when the validation accuracy improves.
 """
 
-from keras.callbacks import ModelCheckpoint
+#from tf.keras.callbacks import ModelCheckpoint
 
-checkpointer = ModelCheckpoint(filepath='model.weights.best.hdf5', verbose = 1, save_best_only=True)
+#checkpointer = ModelCheckpoint(filepath='model.weights.best.hdf5', verbose = 1, save_best_only=True)
+
 model.fit(x_train,
          y_train,
          batch_size=64,
@@ -235,7 +236,7 @@ model.fit(x_train,
 """## Load Model with the best validation accuracy"""
 
 # Load the weights with the best validation accuracy
-model.load_weights('model.weights.best.hdf5')
+#model.load_weights('model.weights.best.hdf5')
 
 """## Test Accuracy"""
 
