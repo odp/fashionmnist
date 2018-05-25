@@ -230,12 +230,7 @@ model.fit(x_train,
          y_train,
          batch_size=64,
          epochs=10,
-<<<<<<< HEAD
          validation_data=(x_valid, y_valid))
-=======
-         validation_data=(x_valid, y_valid),
-         callbacks=[])
->>>>>>> 0a6a57a6464e0ca5822fa681d6fd88d231fa4a51
 
 """## Load Model with the best validation accuracy"""
 
