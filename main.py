@@ -40,7 +40,7 @@ Keras is now part of the core TensorFlow library, in addition to being an indepe
 The [fashion_mnist](https://github.com/zalandoresearch/fashion-mnist) data:
 60,000 train and 10,000 test data with 10 categories. Each gray-scale image is 28x28.
 
-<br> **Label**  **Description**
+<br> **Label**	**Description**
 <br> 0 T-shirt/top
 <br> 1 Trouser
 <br> 2 Pullover
@@ -91,48 +91,11 @@ First let's install TensorFlow version 1.8.0 and import Tensorflow. Then we down
 """
 
 import tensorflow as tf
+
 import numpy as np
-from tensorflow.python.keras.utils.data_utils import get_file
-
-
-def load_data():
-    """Loads the Fashion-MNIST dataset.
-    Returns:
-        Tuple of Numpy arrays: `(x_train, y_train), (x_test, y_test)`.
-    """
-    dirname = os.path.join('datasets', 'fashion-mnist')
-    base = 'http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/'
-    files = [
-        'train-labels-idx1-ubyte.gz', 'train-images-idx3-ubyte.gz',
-        't10k-labels-idx1-ubyte.gz', 't10k-images-idx3-ubyte.gz'
-    ]
-
-    paths = []
-    for fname in files:
-        paths.append(get_file(fname, origin=base + fname, cache_subdir=dirname))
-
-    with gzip.open(paths[0], 'rb') as lbpath:
-        y_train = np.frombuffer(lbpath.read(), np.uint8, offset=8)
-
-    with gzip.open(paths[1], 'rb') as imgpath:
-        x_train = np.frombuffer(
-            imgpath.read(), np.uint8, offset=16).reshape(len(y_train), 28, 28)
-
-    with gzip.open(paths[2], 'rb') as lbpath:
-        y_test = np.frombuffer(lbpath.read(), np.uint8, offset=8)
-
-    with gzip.open(paths[3], 'rb') as imgpath:
-        x_test = np.frombuffer(
-            imgpath.read(), np.uint8, offset=16).reshape(len(y_test), 28, 28)
-
-    return (x_train, y_train), (x_test, y_test)
 
 # Load the fashion-mnist pre-shuffled train data and test data
-(x_train, y_train), (x_test, y_test) = load_data()
-
-#npzfile = np.load('fashion-mnist.npz')
-
-#x_train, y_train, x_test, y_test = npzfile['x_train'], npzfile['y_train'], npzfile['x_test'], npzfile['y_test']
+(x_train, y_train), (x_test, y_test) = tf.python.keras._impl.keras.datasets.fashion_mnist.load_data()
 
 print("x_train shape:", x_train.shape, "y_train shape:", y_train.shape)
 
