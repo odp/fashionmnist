@@ -91,11 +91,11 @@ First let's install TensorFlow version 1.8.0 and import Tensorflow. Then we down
 """
 
 import tensorflow as tf
-
 import numpy as np
+from tensorflow.python.keras._impl import keras
 
 # Load the fashion-mnist pre-shuffled train data and test data
-(x_train, y_train), (x_test, y_test) = tf.python.keras._impl.keras.datasets.fashion_mnist.load_data()
+(x_train, y_train), (x_test, y_test) = keras.datasets.fashion_mnist.load_data()
 
 print("x_train shape:", x_train.shape, "y_train shape:", y_train.shape)
 
