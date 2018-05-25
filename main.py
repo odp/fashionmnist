@@ -231,7 +231,7 @@ model.fit(x_train,
          batch_size=64,
          epochs=10,
          validation_data=(x_valid, y_valid),
-         callbacks=[checkpointer])
+         callbacks=[])
 
 """## Load Model with the best validation accuracy"""
 
