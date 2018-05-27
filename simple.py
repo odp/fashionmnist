@@ -92,6 +92,8 @@ def model_fn(input_shape, number_of_classes):
     #accuracy
     accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1)), tf.float32))
     
+    acc_summary = tf.summary.scalar('accuracy', accuracy)
+    
     return { "logits": logits,
              "predictions": predictions,
              "loss": loss,
@@ -248,7 +250,6 @@ def main():
             else:
                 epoch_accuracy /= number_of_batches
 
-            epoch_summary = tf.summary.scalar('epoch_accuracy', epoch_accuracy)
             print("Epoch: {} Cost: {} accuracy: {} ".format(epoch_index+1, np.squeeze(epoch_cost), epoch_accuracy))
 
 
