@@ -3,11 +3,11 @@
 import argparse
 import sys
 import numpy as np
+import tensorflow as tf
 
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.python.keras._impl import keras
 
-import tensorflow as tf
 
 FLAGS = None
 
