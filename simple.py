@@ -3,13 +3,27 @@
 import argparse
 import sys
 import numpy as np
+import logging
 import tensorflow as tf
+import os
 
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.python.keras._impl import keras
 
+### Before running, make sure you customize these values. The demo won't work if you don't!
 
-FLAGS = None
+# What is your ClusterOne username? This should be something like "johndoe", not your email address!
+CLUSTERONE_USERNAME = "omkar"
+
+# Where should your local log files be stored? This should be something like "~/Documents/self-driving-demo/logs/"
+LOCAL_LOG_LOCATION = "./logs"
+
+#clusterone
+from clusterone import get_data_path, get_logs_path
+
+#Create logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 input_shape = [None, 28, 28, 1]
 number_of_classes = 10
@@ -92,123 +106,166 @@ def model_fn(input_shape, number_of_classes):
              "y": labels,
              "train_mode": train_mode }
 
-def main(_):
-    ps_hosts = FLAGS.ps_hosts.split(",")
-    worker_hosts = FLAGS.worker_hosts.split(",")
-    cluster = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
-    server = tf.train.Server(cluster, job_name=FLAGS.job_name, task_index=FLAGS.task_index)
+def main():
+    """ Main wrapper"""
 
-    if FLAGS.job_name == "ps":
-        server.join()
-    elif FLAGS.job_name == "worker":
+    # clusterone snippet 1 - get environment variables
+    try:
+        job_name = os.environ['JOB_NAME']
+        task_index = os.environ['TASK_INDEX']
+        ps_hosts = os.environ['PS_HOSTS']
+        worker_hosts = os.environ['WORKER_HOSTS']
+    except:
+        job_name = None
+        task_index = 0
+        ps_hosts = None
+        worker_hosts = None
 
-        with tf.device(tf.train.replica_device_setter(
-                    worker_device="/job:worker/task:%d" % FLAGS.task_index,
-                    cluster=cluster)):
+    #end of clusterone snippet 1
 
-            with tf.name_scope("input"):
-                (x_train, y_train), (x_test, y_test) = keras.datasets.fashion_mnist.load_data()
+    #Flags
+    flags = tf.app.flags
+    FLAGS = flags.FLAGS
 
-                x_train = x_train.astype('float32') / 255.
-                x_test = x_test.astype('float32') / 255.
-                
-                x_train, x_valid = x_train[5000:], x_train[:5000]
-                y_train, y_valid = y_train[5000:], y_train[:5000]
-
-                # Reshape input data from (28, 28) to (28, 28, 1)
-                w, h = 28, 28
-                x_train = x_train.reshape(x_train.shape[0], w, h, 1)
-                x_valid = x_valid.reshape(x_valid.shape[0], w, h, 1)
-                x_test = x_test.reshape(x_test.shape[0], w, h, 1)
-
-                # One-hot encode the labels
-                y_train = tf.keras.utils.to_categorical(y_train, 10)
-                y_valid = tf.keras.utils.to_categorical(y_valid, 10)
-                y_test = tf.keras.utils.to_categorical(y_test, 10)
-
-
-            with tf.name_scope("model"):
-                model = model_fn(input_shape, number_of_classes)
-                
-                x = model["x"]
-                y = model["y"]
-                train_mode = model["train_mode"]
-
-        def run_train_epoch(target,FLAGS,epoch_index):
-            epoch_cost, epoch_accuracy = 0, 0
-            with tf.train.MonitoredTrainingSession(master=target,
-                                                   is_chief=(FLAGS.task_index == 0),
-                                                   checkpoint_dir=FLAGS.logs_dir) as sess:
-
-                    total_size = x_train.shape[0]
-                    number_of_batches = int(total_size/batch_size)
-                   
-                    for i in range(number_of_batches):
-                        mini_x = x_train[i*batch_size:(i+1)*batch_size, :, :, :]
-                        mini_y = y_train[i*batch_size:(i+1)*batch_size, :]
-                        _, cost = sess.run([model["train_op"], model["loss"]], 
-                                            feed_dict={x:mini_x, y:mini_y, train_mode:True})
-
-                        train_accuracy = sess.run(model["accuracy"], 
-                                                  feed_dict={x:mini_x, y:mini_y, train_mode:False})
-                        epoch_cost += cost
-                        epoch_accuracy += train_accuracy
- 
-                    epoch_cost /= number_of_batches
-        
-                    if total_size % batch_size != 0:
-                        epoch_accuracy /= (number_of_batches+1)
-                    else:
-                        epoch_accuracy /= number_of_batches
-                    print("Epoch: {} Cost: {} accuracy: {} ".format(epoch_index+1, np.squeeze(epoch_cost), epoch_accuracy))
+    PATH_TO_LOCAL_LOGS = os.path.expanduser(LOCAL_LOG_LOCATION)
     
+    # clusterone snippet 2: flags.
+    flags.DEFINE_string("logs_dir",
+        get_logs_path(root=PATH_TO_LOCAL_LOGS),
+        "Path to store logs and checkpoints. It is recommended"
+        "to use get_logs_path() to define your logs directory."
+        "If you set your logs directory manually make sure"
+        "to use /logs/ when running on TensorPort cloud.")
 
-        for e in range(FLAGS.nb_epochs):
-            run_train_epoch(server.target, FLAGS, e)
+    # Define worker specific environment variables. Handled automatically.
+    flags.DEFINE_string("job_name", job_name,
+                        "job name: worker or ps")
+    flags.DEFINE_integer("task_index", task_index,
+                        "Worker task index, should be >= 0. task_index=0 is "
+                        "the chief worker task the performs the variable "
+                        "initialization")
+    flags.DEFINE_string("ps_hosts", ps_hosts,
+                        "Comma-separated list of hostname:port pairs")
+    flags.DEFINE_string("worker_hosts", worker_hosts,
+                        "Comma-separated list of hostname:port pairs")
+
+    # end of clusterone snippet 2
+
+    # Training flags - feel free to play with that!
+    flags.DEFINE_integer("batch", 64, "Batch size")
+    flags.DEFINE_integer("time", 1, "Number of frames per sample")
+    flags.DEFINE_integer("steps_per_epoch", 10000, "Number of training steps per epoch")
+    flags.DEFINE_integer("nb_epochs", 200, "Number of epochs")
+
+
+    # Model flags - feel free to play with that!
+    flags.DEFINE_float("dropout_rate1",.2,"Dropout rate on first dropout layer")
+    flags.DEFINE_float("dropout_rate2",.5,"Dropout rate on second dropout layer")
+    flags.DEFINE_float("starter_lr",1e-6,"Starter learning rate. Exponential decay is applied")
+    flags.DEFINE_integer("fc_dim",512,"Size of the dense layer")
+    flags.DEFINE_boolean("nogood",False,"Ignore `goods` filters.")
+
+
+    # clusterone snippet 3: configure distributed environment
+    def device_and_target():
+        # If FLAGS.job_name is not set, we're running single-machine TensorFlow.
+        # Don't set a device.
+        if FLAGS.job_name is None:
+            print("Running single-machine training")
+            return (None, "")
+
+        # Otherwise we're running distributed TensorFlow.
+        print("Running distributed training")
+        if FLAGS.task_index is None or FLAGS.task_index == "":
+            raise ValueError("Must specify an explicit `task_index`")
+        if FLAGS.ps_hosts is None or FLAGS.ps_hosts == "":
+            raise ValueError("Must specify an explicit `ps_hosts`")
+        if FLAGS.worker_hosts is None or FLAGS.worker_hosts == "":
+            raise ValueError("Must specify an explicit `worker_hosts`")
+
+        cluster_spec = tf.train.ClusterSpec({
+                "ps": FLAGS.ps_hosts.split(","),
+                "worker": FLAGS.worker_hosts.split(","),
+        })
+        server = tf.train.Server(
+                cluster_spec, job_name=FLAGS.job_name, task_index=FLAGS.task_index)
+        if FLAGS.job_name == "ps":
+            server.join()
+
+        worker_device = "/job:worker/task:{}".format(FLAGS.task_index)
+        # The device setter will automatically place Variables ops on separate
+        # parameter servers (ps). The non-Variable ops will be placed on the workers.
+        return (
+                tf.train.replica_device_setter(
+                        worker_device=worker_device,
+                        cluster=cluster_spec),
+                server.target,
+        )
+
+    device, target = device_and_target()
+    # end of clusterone snippet 3
+
+    if FLAGS.logs_dir is None or FLAGS.logs_dir == "":
+        raise ValueError("Must specify an explicit `logs_dir`")
+
+    with tf.device(device):
+        with tf.name_scope("input"):
+            (x_train, y_train), (x_test, y_test) = keras.datasets.fashion_mnist.load_data()
+
+            x_train = x_train.astype('float32') / 255.
+            x_test = x_test.astype('float32') / 255.
+            
+            x_train, x_valid = x_train[5000:], x_train[:5000]
+            y_train, y_valid = y_train[5000:], y_train[:5000]
+
+            # Reshape input data from (28, 28) to (28, 28, 1)
+            w, h = 28, 28
+            x_train = x_train.reshape(x_train.shape[0], w, h, 1)
+            x_valid = x_valid.reshape(x_valid.shape[0], w, h, 1)
+            x_test = x_test.reshape(x_test.shape[0], w, h, 1)
+
+            # One-hot encode the labels
+            y_train = tf.keras.utils.to_categorical(y_train, 10)
+            y_valid = tf.keras.utils.to_categorical(y_valid, 10)
+            y_test = tf.keras.utils.to_categorical(y_test, 10)
+
+
+        with tf.name_scope("model"):
+            model = model_fn(input_shape, number_of_classes)
+            x = model["x"]
+            y = model["y"]
+            train_mode = model["train_mode"]
+
+    def run_train_epoch(target,FLAGS,epoch_index):
+        epoch_cost, epoch_accuracy = 0, 0
+        with tf.train.MonitoredTrainingSession(master=target, is_chief=(FLAGS.task_index == 0), checkpoint_dir=FLAGS.logs_dir) as sess:
+            total_size = x_train.shape[0]
+            number_of_batches = int(total_size/batch_size)
+           
+            for i in range(number_of_batches):
+                mini_x = x_train[i*batch_size:(i+1)*batch_size, :, :, :]
+                mini_y = y_train[i*batch_size:(i+1)*batch_size, :]
+                _, cost = sess.run([model["train_op"], model["loss"]], 
+                                    feed_dict={x:mini_x, y:mini_y, train_mode:True})
+
+                train_accuracy = sess.run(model["accuracy"], 
+                                          feed_dict={x:mini_x, y:mini_y, train_mode:False})
+                epoch_cost += cost
+                epoch_accuracy += train_accuracy
+
+            epoch_cost /= number_of_batches
+
+            if total_size % batch_size != 0:
+                epoch_accuracy /= (number_of_batches+1)
+            else:
+                epoch_accuracy /= number_of_batches
+            print("Epoch: {} Cost: {} accuracy: {} ".format(epoch_index+1, np.squeeze(epoch_cost), epoch_accuracy))
+
+
+    for e in range(FLAGS.nb_epochs):
+        run_train_epoch(target, FLAGS, e)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.register("type", "bool", lambda v: v.lower() == "true")
-    # Flags for defining the tf.train.ClusterSpec
-    parser.add_argument(
-        "--ps_hosts",
-        type=str,
-        default="",
-        help="Comma-separated list of hostname:port pairs"
-    )
-    parser.add_argument(
-        "--worker_hosts",
-        type=str,
-        default="",
-        help="Comma-separated list of hostname:port pairs"
-    )
-    parser.add_argument(
-        "--nb_epochs",
-        type=int,
-        default=5,
-        help="Number of epochs?"
-    )
-    parser.add_argument(
-        "--logs_dir",
-        type=str,
-        default="./logs",
-        help="Logs directory"
-    )
-    parser.add_argument(
-        "--job_name",
-        type=str,
-        default="",
-        help="One of 'ps', 'worker'"
-    )
-    # Flags for defining the tf.train.Server
-    parser.add_argument(
-        "--task_index",
-        type=int,
-        default=0,
-        help="Index of task within the job"
-    )
-    FLAGS, unparsed = parser.parse_known_args()
-    tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
-
+    main()
 
