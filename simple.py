@@ -10,16 +10,9 @@ import os
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.python.keras._impl import keras
 
-### Before running, make sure you customize these values. The demo won't work if you don't!
-
-# What is your ClusterOne username? This should be something like "johndoe", not your email address!
-CLUSTERONE_USERNAME = "omkar"
-
-# Where should your local log files be stored? This should be something like "~/Documents/self-driving-demo/logs/"
 LOCAL_LOG_LOCATION = "./logs"
 
-#clusterone
-from clusterone import get_data_path, get_logs_path
+from clusterone import get_logs_path
 
 #Create logging
 logging.basicConfig(level=logging.DEBUG)
@@ -32,8 +25,6 @@ number_of_classes = 10
 batch_size = 128
 
 def model_fn(input_shape, number_of_classes):
-    global_step = tf.train.get_or_create_global_step()
-    learning_rate = tf.train.exponential_decay(1e-6, global_step, 1000, 0.96, staircase=True)
 
     input_layer = tf.placeholder(tf.float32, shape=input_shape)
     labels = tf.placeholder(tf.float32, shape=[None, number_of_classes])
@@ -90,6 +81,10 @@ def model_fn(input_shape, number_of_classes):
     
     #loss
     loss = tf.losses.softmax_cross_entropy(labels, logits)
+        
+    training_summary = tf.summary.scalar('Training_Loss', loss)
+    global_step = tf.train.get_or_create_global_step()
+    learning_rate = tf.train.exponential_decay(1e-6, global_step, 1000, 0.96, staircase=True)
     
     #training operartion
     train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss, global_step=global_step)
@@ -107,8 +102,6 @@ def model_fn(input_shape, number_of_classes):
              "train_mode": train_mode }
 
 def main():
-    """ Main wrapper"""
-
     # clusterone snippet 1 - get environment variables
     try:
         job_name = os.environ['JOB_NAME']
@@ -132,10 +125,7 @@ def main():
     # clusterone snippet 2: flags.
     flags.DEFINE_string("logs_dir",
         get_logs_path(root=PATH_TO_LOCAL_LOGS),
-        "Path to store logs and checkpoints. It is recommended"
-        "to use get_logs_path() to define your logs directory."
-        "If you set your logs directory manually make sure"
-        "to use /logs/ when running on TensorPort cloud.")
+        "Path to store logs and checkpoints")
 
     # Define worker specific environment variables. Handled automatically.
     flags.DEFINE_string("job_name", job_name,
@@ -187,6 +177,7 @@ def main():
                 "ps": FLAGS.ps_hosts.split(","),
                 "worker": FLAGS.worker_hosts.split(","),
         })
+
         server = tf.train.Server(
                 cluster_spec, job_name=FLAGS.job_name, task_index=FLAGS.task_index)
         if FLAGS.job_name == "ps":
@@ -195,12 +186,9 @@ def main():
         worker_device = "/job:worker/task:{}".format(FLAGS.task_index)
         # The device setter will automatically place Variables ops on separate
         # parameter servers (ps). The non-Variable ops will be placed on the workers.
-        return (
-                tf.train.replica_device_setter(
+        return (tf.train.replica_device_setter(
                         worker_device=worker_device,
-                        cluster=cluster_spec),
-                server.target,
-        )
+                        cluster=cluster_spec), server.target)
 
     device, target = device_and_target()
     # end of clusterone snippet 3
@@ -259,6 +247,8 @@ def main():
                 epoch_accuracy /= (number_of_batches+1)
             else:
                 epoch_accuracy /= number_of_batches
+
+            epoch_summary = tf.summary.scalar('epoch_accuracy', epoch_accuracy)
             print("Epoch: {} Cost: {} accuracy: {} ".format(epoch_index+1, np.squeeze(epoch_cost), epoch_accuracy))
 
 
