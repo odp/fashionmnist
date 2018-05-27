@@ -1,4 +1,4 @@
-import torch 
+import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
@@ -15,21 +15,21 @@ learning_rate = 0.001
 
 # MNIST dataset
 train_dataset = torchvision.datasets.FashionMNIST(root='./data/',
-                                           train=True, 
+                                           train=True,
                                            transform=transforms.ToTensor(),
                                            download=True)
 
 test_dataset = torchvision.datasets.FashionMNIST(root='./data/',
-                                          train=False, 
+                                          train=False,
                                           transform=transforms.ToTensor())
 
 # Data loader
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-                                           batch_size=batch_size, 
+                                           batch_size=batch_size,
                                            shuffle=True)
 
 test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
-                                          batch_size=batch_size, 
+                                          batch_size=batch_size,
                                           shuffle=False)
 
 # Convolutional neural network (two convolutional layers)
@@ -47,7 +47,7 @@ class ConvNet(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.fc = nn.Linear(7*7*32, num_classes)
-        
+
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
@@ -67,18 +67,18 @@ for epoch in range(num_epochs):
     for i, (images, labels) in enumerate(train_loader):
         images = images.to(device)
         labels = labels.to(device)
-        
+
         # Forward pass
         outputs = model(images)
         loss = criterion(outputs, labels)
-        
+
         # Backward and optimize
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        
+
         if (i+1) % 100 == 0:
-            print ('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}' 
+            print ('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                    .format(epoch+1, num_epochs, i+1, total_step, loss.item()))
 
 # Test the model

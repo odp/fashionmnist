@@ -28,7 +28,9 @@ Original file is located at
 *   MNIST is overused
 *   MNIST can not represent modern Computer Vision tasks
 
-Read more about the Fashion-MINST dataset in this paper [here](https://arxiv.org/abs/1708.07747) (**Fashion-MNIST: a Novel Image Dataset for Benchmarking Machine Learning Algorithms**)
+Read more about the Fashion-MINST dataset in this paper
+[here](https://arxiv.org/abs/1708.07747) (**Fashion-MNIST: a Novel Image
+Dataset for Benchmarking Machine Learning Algorithms**)
 
 ## Notebook Overview
 
@@ -86,9 +88,9 @@ Each gray-scale image is 28x28
 
 >>[Congragulations!](#scrollTo=8AehWdRAVKN5)
 
-## Download the fashion_mnist data
-First let's install TensorFlow version 1.8.0 and import Tensorflow. Then we download fashion-mnist which is one of the Keras datasets.
-"""
+## Download the fashion_mnist data First let's install TensorFlow version 1.8.0
+and import Tensorflow. Then we download fashion-mnist which is one of the Keras
+datasets.  """
 
 import tensorflow as tf
 import numpy as np
@@ -175,8 +177,10 @@ There are two APIs for defining a model in Keras:
 1. [Sequential model API](https://keras.io/models/sequential/)
 2. [Functional API](https://keras.io/models/model/)
 
-In this notebook we are using the Sequential model API.
-If you are interested in a tutorial using the Functional API, checkout Sara Robinson's blog [Predicting the price of wine with the Keras Functional API and TensorFlow](https://medium.com/tensorflow/predicting-the-price-of-wine-with-the-keras-functional-api-and-tensorflow-a95d1c2c1b03).
+In this notebook we are using the Sequential model API.  If you are interested
+in a tutorial using the Functional API, checkout Sara Robinson's blog
+[Predicting the price of wine with the Keras Functional API and
+TensorFlow](https://medium.com/tensorflow/predicting-the-price-of-wine-with-the-keras-functional-api-and-tensorflow-a95d1c2c1b03).
 
 In defining the model we will be using some of these Keras APIs:
 *   Conv2D() [link text](https://www.tensorflow.org/api_docs/python/tf/keras/layers/Conv2D/) - create a convolutional layer
@@ -203,8 +207,8 @@ model.add(tf.keras.layers.Dense(10, activation='softmax'))
 # Take a look at the model summary
 model.summary()
 
-"""## Compile the model
-Configure the learning process with compile() API before training the model. It receives three arguments:
+"""## Compile the model Configure the learning process with compile() API
+before training the model. It receives three arguments:
 
 *   An optimizer
 *   A loss function
@@ -219,8 +223,9 @@ model.compile(loss='categorical_crossentropy',
 
 Now let's train the model with fit() API.
 
-We use  the [ModelCheckpoint](https://keras.io/callbacks/#modelcheckpoint) API to save the model after every epoch. Set "save_best_only = True" to save only when the validation accuracy improves.
-"""
+We use  the [ModelCheckpoint](https://keras.io/callbacks/#modelcheckpoint) API
+to save the model after every epoch. Set "save_best_only = True" to save only
+when the validation accuracy improves.  """
 
 #from tf.keras.callbacks import ModelCheckpoint
 
@@ -245,12 +250,11 @@ score = model.evaluate(x_test, y_test, verbose=0)
 # Print test accuracy
 print('\n', 'Test accuracy:', score[1])
 
-"""## Visualize prediction
-Now let's visualize the prediction using the model you just trained.
-First we get the predictions with the model from the test data.
-Then we print out 15 images from the test data set, and set the titles with the prediction (and the groud truth label).
-If the prediction matches the true label, the title will be green; otherwise it's displayed in red.
-"""
+"""## Visualize prediction Now let's visualize the prediction using the model
+you just trained.  First we get the predictions with the model from the test
+data.  Then we print out 15 images from the test data set, and set the titles
+with the prediction (and the groud truth label).  If the prediction matches the
+true label, the title will be green; otherwise it's displayed in red.  """
 
 y_hat = model.predict(x_test)
 
