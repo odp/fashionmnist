@@ -1,4 +1,6 @@
-# https://henning.kropponline.de/2017/03/19/distributing-tensorflow/
+# references
+# 1. https://clusterone.com/blog/2017/09/13/distributed-tensorflow-clusterone/
+# 2. https://henning.kropponline.de/2017/03/19/distributing-tensorflow/
 
 import argparse
 import sys
@@ -186,6 +188,7 @@ def main():
             server.join()
 
         worker_device = "/job:worker/task:{}".format(FLAGS.task_index)
+        
         # The device setter will automatically place Variables ops on separate
         # parameter servers (ps). The non-Variable ops will be placed on the workers.
         return (tf.train.replica_device_setter(
@@ -194,7 +197,7 @@ def main():
 
     device, target = device_and_target()
     # end of clusterone snippet 3
-
+    
     if FLAGS.logs_dir is None or FLAGS.logs_dir == "":
         raise ValueError("Must specify an explicit `logs_dir`")
 
@@ -226,15 +229,28 @@ def main():
             y = model["y"]
             train_mode = model["train_mode"]
 
+    def next_batch(x, y, i):
+        idxs = np.random.permutation(x.shape[0]) #shuffled ordering
+        
+        x_r = x[idxs]
+        y_r = y[idxs]
+        
+        x_ = x_r[i*batch_size:(i+1)*batch_size, :, :, :]
+        y_ = y_r[i*batch_size:(i+1)*batch_size, :]
+
+        return x_, y_
+        
     def run_train_epoch(target,FLAGS,epoch_index):
         epoch_cost, epoch_accuracy = 0, 0
-        with tf.train.MonitoredTrainingSession(master=target, is_chief=(FLAGS.task_index == 0), checkpoint_dir=FLAGS.logs_dir) as sess:
+
+        with tf.train.MonitoredTrainingSession(master=target, 
+                is_chief=(FLAGS.task_index == 0), checkpoint_dir=FLAGS.logs_dir) as sess:
             total_size = x_train.shape[0]
             number_of_batches = int(total_size/batch_size)
            
             for i in range(number_of_batches):
-                mini_x = x_train[i*batch_size:(i+1)*batch_size, :, :, :]
-                mini_y = y_train[i*batch_size:(i+1)*batch_size, :]
+                mini_x, mini_y = next_batch(x_train, y_train, i)
+
                 _, cost = sess.run([model["train_op"], model["loss"]], 
                                     feed_dict={x:mini_x, y:mini_y, train_mode:True})
 
@@ -250,7 +266,8 @@ def main():
             else:
                 epoch_accuracy /= number_of_batches
 
-            print("Epoch: {} Cost: {} accuracy: {} ".format(epoch_index+1, np.squeeze(epoch_cost), epoch_accuracy))
+            print("Epoch: {} Cost: {} accuracy: {} ".format(epoch_index+1, 
+                np.squeeze(epoch_cost), epoch_accuracy))
 
 
     for e in range(FLAGS.nb_epochs):
