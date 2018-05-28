@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 input_shape = [None, 28, 28, 1]
 number_of_classes = 10
+learning_rate = 0.01
 
 #Hyper parameters
 batch_size = 128
@@ -86,7 +87,6 @@ def model_fn(input_shape, number_of_classes):
         
     training_summary = tf.summary.scalar('Training_Loss', loss)
     global_step = tf.train.get_or_create_global_step()
-    learning_rate = tf.train.exponential_decay(1e-6, global_step, 1000, 0.96, staircase=True)
     
     #training operartion
     train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss, global_step=global_step)
