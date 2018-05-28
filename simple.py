@@ -229,19 +229,13 @@ def main():
             y = model["y"]
             train_mode = model["train_mode"]
 
-    def next_batch(x, y, i):
+    def shuffle(x, y):
         idxs = np.random.permutation(x.shape[0]) #shuffled ordering
-        
-        x_r = x[idxs]
-        y_r = y[idxs]
-        
-        x_ = x_r[i*batch_size:(i+1)*batch_size, :, :, :]
-        y_ = y_r[i*batch_size:(i+1)*batch_size, :]
-
-        return x_, y_
+        return x[idxs], y[idxs]
         
     def run_train_epoch(target,FLAGS,epoch_index):
         epoch_cost, epoch_accuracy = 0, 0
+        x_train_r, y_train_r = shuffle(x_train, y_train)
 
         with tf.train.MonitoredTrainingSession(master=target, 
                 is_chief=(FLAGS.task_index == 0), checkpoint_dir=FLAGS.logs_dir) as sess:
@@ -249,8 +243,8 @@ def main():
             number_of_batches = int(total_size/batch_size)
            
             for i in range(number_of_batches):
-                mini_x, mini_y = next_batch(x_train, y_train, i)
-
+                mini_x = x_train_r[i*batch_size:(i+1)*batch_size, :, :, :]
+                mini_y = y_train_r[i*batch_size:(i+1)*batch_size, :] 
                 _, cost = sess.run([model["train_op"], model["loss"]], 
                                     feed_dict={x:mini_x, y:mini_y, train_mode:True})
 
