@@ -92,9 +92,11 @@ def model_fn(input_shape, number_of_classes):
     train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss, global_step=global_step)
     
     #accuracy
-    accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1)), tf.float32))
+    train_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1)), tf.float32))
+    test_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1)), tf.float32))
     
-    acc_summary = tf.summary.scalar('accuracy', accuracy)
+    train_acc_summary = tf.summary.scalar('train accuracy', train_accuracy)
+    test_acc_summary = tf.summary.scalar('test accuracy', test_accuracy)
     
     summary_op = tf.summary.merge_all()
     
@@ -102,7 +104,8 @@ def model_fn(input_shape, number_of_classes):
              "predictions": predictions,
              "loss": loss,
              "train_op": train_op,
-             "accuracy": accuracy,
+             "train_accuracy": train_accuracy,
+             "test_accuracy": test_accuracy,
              "summary": summary_op,
              "x": input_layer,
              "y": labels,
@@ -238,18 +241,22 @@ def main():
                 _, loss, summary = sess.run([model["train_op"], model["loss"], model["summary"]],
                                     feed_dict={x:mini_x, y:mini_y, train_mode:True})
 
-                train_accuracy = sess.run(model["accuracy"], 
+                train_accuracy = sess.run(model["train_accuracy"], 
                                           feed_dict={x:mini_x, y:mini_y, train_mode:False})
+                
                 epoch_loss += loss
                 epoch_accuracy += train_accuracy
 
             epoch_loss /= number_of_batches
             epoch_accuracy /= number_of_batches
+
+            test_accuracy = sess.run(model["test_accuracy"], 
+                                      feed_dict={x:x_test, y:y_test, train_mode:False})
             
             writer.add_summary(summary, epoch_index * number_of_batches + i)
 
-        print("Epoch: {} loss: {} accuracy: {} ".format(epoch_index+1, 
-            np.squeeze(epoch_loss), epoch_accuracy))
+        print("Epoch: {} loss: {} train accuracy: {} test accuracy: {}".format(epoch_index+1, 
+            np.squeeze(epoch_loss), epoch_accuracy, test_accuracy))
 
         
     writer = tf.summary.FileWriter(FLAGS.logs_dir, graph=tf.get_default_graph())
