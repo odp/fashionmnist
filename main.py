@@ -2,6 +2,8 @@
 # 1. https://clusterone.com/blog/2017/09/13/distributed-tensorflow-clusterone/
 # 2. https://henning.kropponline.de/2017/03/19/distributing-tensorflow/
 
+# depends on tensorflow >= 1.7
+
 import argparse
 import sys
 import numpy as np
@@ -85,18 +87,16 @@ def model_fn(input_shape, number_of_classes):
     #loss
     loss = tf.losses.softmax_cross_entropy(labels, logits)
         
-    training_summary = tf.summary.scalar('Training_Loss', loss)
     global_step = tf.train.get_or_create_global_step()
     
     #training operartion
     train_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss, global_step=global_step)
     
     #accuracy
-    train_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1)), tf.float32))
-    test_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1)), tf.float32))
+    accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1)), tf.float32))
     
-    train_acc_summary = tf.summary.scalar('train accuracy', train_accuracy)
-    test_acc_summary = tf.summary.scalar('test accuracy', test_accuracy)
+    tf.summary.scalar('train_loss', loss)
+    tf.summary.scalar('accuracy', accuracy)
     
     summary_op = tf.summary.merge_all()
     
@@ -104,8 +104,7 @@ def model_fn(input_shape, number_of_classes):
              "predictions": predictions,
              "loss": loss,
              "train_op": train_op,
-             "train_accuracy": train_accuracy,
-             "test_accuracy": test_accuracy,
+             "accuracy": accuracy,
              "summary": summary_op,
              "x": input_layer,
              "y": labels,
@@ -226,7 +225,7 @@ def main():
         idxs = np.random.permutation(x.shape[0]) #shuffled ordering
         return x[idxs], y[idxs]
         
-    def run_train_epoch(target, FLAGS, epoch_index, writer):
+    def run_train_epoch(target, FLAGS, epoch_index, train_writer, test_writer):
         epoch_loss, epoch_accuracy = 0, 0
         x_train_r, y_train_r = shuffle(x_train, y_train)
 
@@ -236,33 +235,40 @@ def main():
             number_of_batches = int(total_size/batch_size)
            
             for i in range(number_of_batches):
+                step = epoch_index * number_of_batches + i
+
                 mini_x = x_train_r[i*batch_size:(i+1)*batch_size, :, :, :]
                 mini_y = y_train_r[i*batch_size:(i+1)*batch_size, :] 
-                _, loss, summary = sess.run([model["train_op"], model["loss"], model["summary"]],
+                _, loss = sess.run([model["train_op"], model["loss"]],
                                     feed_dict={x:mini_x, y:mini_y, train_mode:True})
 
-                train_accuracy = sess.run(model["train_accuracy"], 
+                epoch_loss += loss
+                
+                train_accuracy, summary = sess.run([model["accuracy"], model["summary"]],
                                           feed_dict={x:mini_x, y:mini_y, train_mode:False})
                 
-                epoch_loss += loss
                 epoch_accuracy += train_accuracy
+                
+                train_writer.add_summary(summary, step)
 
-            epoch_loss /= number_of_batches
-            epoch_accuracy /= number_of_batches
+                if step % 200 == 0:  # Record summaries and test-set accuracy
+                    test_accuracy, summary = sess.run([model["accuracy"], model["summary"]],
+                                              feed_dict={x:x_test, y:y_test, train_mode:False})
+                    test_writer.add_summary(summary, step)
+                    print('test accuracy at step %s: %s' % (step, test_accuracy))
 
-            test_accuracy = sess.run(model["test_accuracy"], 
-                                      feed_dict={x:x_test, y:y_test, train_mode:False})
-            
-            writer.add_summary(summary, epoch_index * number_of_batches + i)
+        epoch_loss /= number_of_batches
+        epoch_accuracy /= number_of_batches
 
-        print("Epoch: {} loss: {} train accuracy: {} test accuracy: {}".format(epoch_index+1, 
-            np.squeeze(epoch_loss), epoch_accuracy, test_accuracy))
+        print("Epoch: {} loss: {} train accuracy: {}".format(epoch_index+1, 
+            np.squeeze(epoch_loss), epoch_accuracy))
 
         
-    writer = tf.summary.FileWriter(FLAGS.logs_dir, graph=tf.get_default_graph())
-        
+    train_wr = tf.summary.FileWriter(FLAGS.logs_dir + '/train', graph=tf.get_default_graph())
+    test_wr = tf.summary.FileWriter(FLAGS.logs_dir + '/test')
+
     for e in range(FLAGS.nb_epochs):
-        run_train_epoch(target, FLAGS, e, writer)
+        run_train_epoch(target, FLAGS, e, train_wr, test_wr)
 
 
 if __name__ == "__main__":
