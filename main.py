@@ -96,11 +96,14 @@ def model_fn(input_shape, number_of_classes):
     
     acc_summary = tf.summary.scalar('accuracy', accuracy)
     
+    summary_op = tf.summary.merge_all()
+    
     return { "logits": logits,
              "predictions": predictions,
              "loss": loss,
              "train_op": train_op,
              "accuracy": accuracy,
+             "summary": summary_op,
              "x": input_layer,
              "y": labels,
              "train_mode": train_mode }
@@ -220,7 +223,7 @@ def main():
         idxs = np.random.permutation(x.shape[0]) #shuffled ordering
         return x[idxs], y[idxs]
         
-    def run_train_epoch(target,FLAGS,epoch_index):
+    def run_train_epoch(target, FLAGS, epoch_index, writer):
         epoch_loss, epoch_accuracy = 0, 0
         x_train_r, y_train_r = shuffle(x_train, y_train)
 
@@ -232,7 +235,7 @@ def main():
             for i in range(number_of_batches):
                 mini_x = x_train_r[i*batch_size:(i+1)*batch_size, :, :, :]
                 mini_y = y_train_r[i*batch_size:(i+1)*batch_size, :] 
-                _, loss = sess.run([model["train_op"], model["loss"]], 
+                _, loss, summary = sess.run([model["train_op"], model["loss"], model["summary"]],
                                     feed_dict={x:mini_x, y:mini_y, train_mode:True})
 
                 train_accuracy = sess.run(model["accuracy"], 
@@ -242,13 +245,17 @@ def main():
 
             epoch_loss /= number_of_batches
             epoch_accuracy /= number_of_batches
+            
+            writer.add_summary(summary, epoch_index * number_of_batches + i)
 
         print("Epoch: {} loss: {} accuracy: {} ".format(epoch_index+1, 
             np.squeeze(epoch_loss), epoch_accuracy))
 
-
+        
+    writer = tf.summary.FileWriter(FLAGS.logs_dir, graph=tf.get_default_graph())
+        
     for e in range(FLAGS.nb_epochs):
-        run_train_epoch(target, FLAGS, e)
+        run_train_epoch(target, FLAGS, e, writer)
 
 
 if __name__ == "__main__":
