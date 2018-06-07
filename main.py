@@ -204,10 +204,9 @@ def main():
             y_train, y_valid = y_train[5000:], y_train[:5000]
 
             # Reshape input data from (28, 28) to (28, 28, 1)
-            w, h = 28, 28
-            x_train = x_train.reshape(x_train.shape[0], w, h, 1)
-            x_valid = x_valid.reshape(x_valid.shape[0], w, h, 1)
-            x_test = x_test.reshape(x_test.shape[0], w, h, 1)
+            x_train = x_train.reshape(input_shape)
+            x_valid = x_valid.reshape(input_shape)
+            x_test = x_test.reshape(input_shape)
 
             # One-hot encode the labels
             y_train = tf.keras.utils.to_categorical(y_train, 10)
