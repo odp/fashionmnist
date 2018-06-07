@@ -39,7 +39,7 @@ def model_fn(input_shape, number_of_classes):
     # initialize random seed
     tf.set_random_seed(1)
     
-    #convolution layer 1
+    #convolution layer 1, output = (n - f) / stride + 1
     conv1 = tf.layers.conv2d(
         inputs=input_layer, 
         filters=32, 
@@ -55,12 +55,16 @@ def model_fn(input_shape, number_of_classes):
         inputs=pool1, 
         filters=64, 
         kernel_size=[5, 5], 
-        padding="same", 
+        padding="same", #  out_height = ceil(float(in_height) / float(strides[1]))
         activation=tf.nn.relu)
     
-    #pooling layer 1
+    print(conv2.get_shape()) # (?, 14, 14, 64)
+
+    #pooling layer 1 
     pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
     
+    print(pool2.get_shape()) # (?, 7, 7, 64)
+
     #flatten the output volume of pool2 into a vector
     pool2_flat = tf.reshape(pool2, shape=[-1, 7*7*64])
     
@@ -85,7 +89,7 @@ def model_fn(input_shape, number_of_classes):
     }
     
     #loss
-    loss = tf.losses.softmax_cross_entropy(labels, logits)
+    loss = tf.losses.softmax_cross_entropy(labels, logits) # H(p, q) = -sum x: p(x) * log q(x)
         
     global_step = tf.train.get_or_create_global_step()
     
@@ -169,13 +173,19 @@ def main():
         if FLAGS.worker_hosts is None or FLAGS.worker_hosts == "":
             raise ValueError("Must specify an explicit `worker_hosts`")
 
+        # Represents a cluster as a set of "tasks", organized into "jobs".
         cluster_spec = tf.train.ClusterSpec({
-                "ps": FLAGS.ps_hosts.split(","),
-                "worker": FLAGS.worker_hosts.split(","),
+                "ps": FLAGS.ps_hosts.split(","), # job1
+                "worker": FLAGS.worker_hosts.split(","), # job2
         })
 
+        # Server instance encapsulates a set of devices and a tf.Session
+        # target that can participate in distributed training. A server belongs
+        # to a cluster (specified by a tf.train.ClusterSpec), and corresponds to
+        # a particular task in a named job.
         server = tf.train.Server(
                 cluster_spec, job_name=FLAGS.job_name, task_index=FLAGS.task_index)
+        
         if FLAGS.job_name == "ps":
             server.join()
 
@@ -187,7 +197,7 @@ def main():
                         worker_device=worker_device,
                         cluster=cluster_spec), server.target)
 
-    device, target = device_and_target()
+    device, target = device_and_target() # place tensors, session
     # end of clusterone snippet 3
     
     if FLAGS.logs_dir is None or FLAGS.logs_dir == "":
@@ -197,6 +207,8 @@ def main():
         with tf.name_scope("input"):
             (x_train, y_train), (x_test, y_test) = keras.datasets.fashion_mnist.load_data()
 
+            print(x_train.shape, x_test.shape) # 60k, 10k
+
             x_train = x_train.astype('float32') / 255.
             x_test = x_test.astype('float32') / 255.
             
@@ -204,9 +216,10 @@ def main():
             y_train, y_valid = y_train[5000:], y_train[:5000]
 
             # Reshape input data from (28, 28) to (28, 28, 1)
-            x_train = x_train.reshape(input_shape)
-            x_valid = x_valid.reshape(input_shape)
-            x_test = x_test.reshape(input_shape)
+            w, h = 28, 28
+            x_train = x_train.reshape(x_train.shape[0], w, h, 1)
+            x_valid = x_valid.reshape(x_valid.shape[0], w, h, 1)
+            x_test = x_test.reshape(x_test.shape[0], w, h, 1)
 
             # One-hot encode the labels
             y_train = tf.keras.utils.to_categorical(y_train, 10)
