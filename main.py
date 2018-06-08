@@ -47,7 +47,7 @@ def model_fn(input_shape, number_of_classes):
         padding="same", 
         activation=tf.nn.relu)
     
-    print(conv1.get_shape()) # (?, 28, 28, 64)
+    print(conv1.get_shape()) # (?, 28, 28, 32)
     
     #pooling layer 1
     pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
@@ -221,7 +221,7 @@ def main():
 
             # Reshape input data from (28, 28) to (28, 28, 1)
             w, h = 28, 28
-            x_train = x_train.reshape(x_train.shape[0], w, h, 1)
+            x_train = x_train.reshape(x_train.shape[0], w, h, 1) # NHWC
             x_valid = x_valid.reshape(x_valid.shape[0], w, h, 1)
             x_test = x_test.reshape(x_test.shape[0], w, h, 1)
 
